@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Departure Time — Split-Flap World Clock</title>
+<style>
+  :root {
+    --chassis: #242427;
+    --chassis-dark: #18181a;
+    --chassis-edge: #35353a;
+    --recess: #0e0e10;
+    --flap-top: #1d1d20;
+    --flap-bottom: #17171a;
+    --ivory: #f1ece1;
+    --ivory-muted: #9e998e;
+    --orange: #d9542b;
+    --orange-glow: rgba(217, 84, 43, 0.25);
+    --font-display: "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% 35%, #343330 0%, #1c1b1a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    font-family: var(--font-display);
+    color: var(--ivory);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Main 1970s Desk Instrument Casing */
+  .instrument {
+    width: 100%;
+    max-width: 820px;
+    background: linear-gradient(180deg, #2b2b2f 0%, var(--chassis) 14%, var(--chassis-dark) 100%);
+    border-radius: 14px;
+    padding: 28px 32px 32px;
+    box-shadow:
+      0 30px 60px rgba(0, 0, 0, 0.65),
+      0 4px 12px rgba(0, 0, 0, 0.4),
+      inset 0 1px 1px rgba(255, 255, 255, 0.14),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+    border: 1px solid #121214;
+    position: relative;
+  }
+
+  /* Subtle corner chassis screws */
+  .screw {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #4a4a50, #19191c);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .screw::after {
+    content: "";
+    position: absolute;
+    top: 3.5px;
+    left: 1.5px;
+    width: 5px;
+    height: 1px;
+    background: #111;
+    transform: rotate(-35deg);
+  }
+  .screw.tl { top: 12px; left: 12px; }
+  .screw.tr { top: 12px; right: 12px; }
+  .screw.bl { bottom: 12px; left: 12px; }
+  .screw.br { bottom: 12px; right: 12px; }
+
+  /* Instrument Top Nameplate & Controls */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pilot-lamp {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 8px var(--orange), inset 0 1px 1px rgba(255,255,255,0.5);
+  }
+
+  .brand h1 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ivory);
+  }
+
+  .brand span {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--ivory-muted);
+    text-transform: uppercase;
+  }
+
+  /* Tactile 12H / 24H Mechanical Toggle */
+  .mode-switch {
+    display: flex;
+    align-items: center;
+    background: var(--recess);
+    padding: 3px;
+    border-radius: 5px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.07);
+    border: 1px solid #09090b;
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--ivory-muted);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 5px 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mode-btn.active {
+    background: var(--orange);
+    color: #fffaf2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+
+  /* 2x2 Grid of Clock Modules */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  @media (max-width: 680px) {
+    .board { grid-template-columns: 1fr; }
+    .instrument { padding: 22px 18px; }
+  }
+
+  .station {
+    background: linear-gradient(180deg, #1b1b1e 0%, #151518 100%);
+    border-radius: 8px;
+    padding: 16px 18px 18px;
+    border: 1px solid #0d0d0f;
+    box-shadow:
+      inset 0 2px 5px rgba(0, 0, 0, 0.75),
+      0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .station-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  /* Recessed City Selector */
+  .city-select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .city-select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--ivory);
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding-right: 16px;
+    cursor: pointer;
+  }
+
+  .city-select:focus {
+    outline: none;
+    color: var(--orange);
+  }
+
+  .city-select option {
+    background: #1d1d20;
+    color: var(--ivory);
+  }
+
+  .city-select-wrap::after {
+    content: "▾";
+    position: absolute;
+    right: 0;
+    font-size: 0.75rem;
+    color: var(--orange);
+    pointer-events: none;
+  }
+
+  .day-offset {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--ivory-muted);
+    text-transform: uppercase;
+  }
+
+  /* Flap Housing Row */
+  .readout {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--recess);
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.9);
+    border: 1px solid #08080a;
+  }
+
+  .colon {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 1px;
+  }
+
+  .colon span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--ivory-muted);
+    opacity: 0.55;
+  }
+
+  /* Single Split-Flap Digit Unit */
+  .flap-unit {
+    position: relative;
+    width: 46px;
+    height: 68px;
+    perspective: 500px;
+    border-radius: 4px;
+    background: #111113;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+    user-select: none;
+  }
+
+  .flap-unit.small {
+    width: 34px;
+    height: 50px;
+    margin-left: auto;
+  }
+
+  /* Shared Half-Card Styling */
+  .half {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    backface-visibility: hidden;
+    display: flex;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--ivory);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .flap-unit .half span {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 200%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.65rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .flap-unit.small .half span {
+    font-size: 1.75rem;
+  }
+
+  /* Top Half */
+  .half.top {
+    top: 0;
+    background: linear-gradient(180deg, #252529 0%, var(--flap-top) 100%);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    transform-origin: 50% 100%;
+  }
+
+  .half.top span {
+    top: 0;
+  }
+
+  /* Bottom Half */
+  .half.bottom {
+    bottom: 0;
+    background: linear-gradient(180deg, var(--flap-bottom) 0%, #121214 100%);
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.8);
+    transform-origin: 50% 0%;
+  }
+
+  .half.bottom span {
+    bottom: 0;
+  }
+
+  /* Mechanical Split Seam & Left/Right Hinge Pins */
+  .flap-unit::after {
+    content: "";
+    position: absolute;
+    top: calc(50% - 1px);
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #070708;
+    z-index: 10;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .hinge-l, .hinge-r {
+    position: absolute;
+    top: calc(50% - 3px);
+    width: 3px;
+    height: 6px;
+    background: #3a3a40;
+    z-index: 11;
+    border-radius: 1px;
+  }
+  .hinge-l { left: -1px; }
+  .hinge-r { right: -1px; }
+
+  /* Animated Leaf Layers */
+  .flip-top {
+    z-index: 4;
+    transform: rotateX(0deg);
+  }
+
+  .flip-bottom {
+    z-index: 5;
+    transform: rotateX(90deg);
+  }
+
+  .flap-unit.flipping .flip-top {
+    animation: flipDownTop 0.16s ease-in forwards;
+  }
+
+  .flap-unit.flipping .flip-bottom {
+    animation: flipDownBottom 0.18s ease-out 0.16s forwards;
+  }
+
+  @keyframes flipDownTop {
+    0%   { transform: rotateX(0deg); filter: brightness(1); }
+    100% { transform: rotateX(-90deg); filter: brightness(0.55); }
+  }
+
+  @keyframes flipDownBottom {
+    0%   { transform: rotateX(90deg); filter: brightness(0.65); }
+    85%  { transform: rotateX(-4deg); filter: brightness(1.04); }
+    100% { transform: rotateX(0deg); filter: brightness(1); }
+  }
+
+  /* AM/PM Flap Badge for 12h Mode */
+  .meridiem {
+    margin-left: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--orange);
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .meridiem.visible {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<main class="instrument" aria-label="Departure Time World Clock">
+  <span class="screw tl"></span>
+  <span class="screw tr"></span>
+  <span class="screw bl"></span>
+  <span class="screw br"></span>
+
+  <header class="header">
+    <div class="brand">
+      <span class="pilot-lamp" aria-hidden="true"></span>
+      <h1>Departure Time</h1>
+      <span>Model 74-W</span>
+    </div>
+
+    <div class="mode-switch" role="group" aria-label="Time format">
+      <button type="button" class="mode-btn active" data-mode="24">24H</button>
+      <button type="button" class="mode-btn" data-mode="12">12H</button>
+    </div>
+  </header>
+
+  <section class="board" id="board"></section>
+</main>
+
+<script>
+  const CITIES = [
+    { id: "toronto", name: "Toronto", tz: "America/Toronto" },
+    { id: "sf", name: "San Francisco", tz: "America/Los_Angeles" },
+    { id: "london", name: "London", tz: "Europe/London" },
+    { id: "tokyo", name: "Tokyo", tz: "Asia/Tokyo" },
+    { id: "nyc", name: "New York", tz: "America/New_York" },
+    { id: "paris", name: "Paris", tz: "Europe/Paris" },
+    { id: "zurich", name: "Zurich", tz: "Europe/Zurich" },
+    { id: "sydney", name: "Sydney", tz: "Australia/Sydney" },
+    { id: "seoul", name: "Seoul", tz: "Asia/Seoul" },
+    { id: "sao-paulo", name: "São Paulo", tz: "America/Sao_Paulo" }
+  ];
+
+  // Default 4 cities requested
+  const activeSlots = ["toronto", "sf", "london", "tokyo"];
+  let use24Hour = true;
+
+  const boardEl = document.getElementById("board");
+
+  function createFlapUnit(isSmall = false) {
+    const unit = document.createElement("div");
+    unit.className = isSmall ? "flap-unit small" : "flap-unit";
+    unit.dataset.val = "0";
+    unit.innerHTML = `
+      <div class="hinge-l"></div>
+      <div class="hinge-r"></div>
+      <div class="half top static-top"><span>0</span></div>
+      <div class="half bottom static-bottom"><span>0</span></div>
+      <div class="half top flip-top"><span>0</span></div>
+      <div class="half bottom flip-bottom"><span>0</span></div>
+    `;
+    return unit;
+  }
+
+  function flipTo(unit, nextVal) {
+    const currentVal = unit.dataset.val;
+    if (currentVal === nextVal) return;
+
+    const staticTop = unit.querySelector(".static-top span");
+    const staticBottom = unit.querySelector(".static-bottom span");
+    const flipTop = unit.querySelector(".flip-top span");
+    const flipBottom = unit.querySelector(".flip-bottom span");
+
+    // Prepare layers for mechanical transition
+    flipTop.textContent = currentVal;
+    staticBottom.textContent = currentVal;
+    staticTop.textContent = nextVal;
+    flipBottom.textContent = nextVal;
+
+    unit.classList.remove("flipping");
+    void unit.offsetWidth; // Force reflow to retrigger CSS animation
+    unit.classList.add("flipping");
+
+    unit.dataset.val = nextVal;
+
+    clearTimeout(unit._timer);
+    unit._timer = setTimeout(() => {
+      staticBottom.textContent = nextVal;
+      flipTop.textContent = nextVal;
+      unit.classList.remove("flipping");
+    }, 350);
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    activeSlots.forEach((cityId, slotIndex) => {
+      const station = document.createElement("article");
+      station.className = "station";
+
+      const meta = document.createElement("div");
+      meta.className = "station-meta";
+
+      const selectWrap = document.createElement("div");
+      selectWrap.className = "city-select-wrap";
+
+      const select = document.createElement("select");
+      select.className = "city-select";
+      select.setAttribute("aria-label", `Select city for clock ${slotIndex + 1}`);
+      CITIES.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === cityId) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener("change", (e) => {
+        activeSlots[slotIndex] = e.target.value;
+        updateClocks(true);
+      });
+
+      selectWrap.appendChild(select);
+
+      const dayLabel = document.createElement("span");
+      dayLabel.className = "day-offset";
+
+      meta.appendChild(selectWrap);
+      meta.appendChild(dayLabel);
+
+      const readout = document.createElement("div");
+      readout.className = "readout";
+
+      const h1 = createFlapUnit();
+      const h2 = createFlapUnit();
+      const m1 = createFlapUnit();
+      const m2 = createFlapUnit();
+      const s1 = createFlapUnit(true);
+      const s2 = createFlapUnit(true);
+
+      const colon = document.createElement("div");
+      colon.className = "colon";
+      colon.innerHTML = "<span></span><span></span>";
+
+      const meridiem = document.createElement("span");
+      meridiem.className = "meridiem";
+
+      readout.append(h1, h2, colon, m1, m2, meridiem, s1, s2);
+      station.append(meta, readout);
+      boardEl.appendChild(station);
+
+      station._refs = { dayLabel, digits: [h1, h2, m1, m2, s1, s2], meridiem };
+    });
+  }
+
+  function getZonedParts(date, timeZone) {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: !use24Hour,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+
+    const parts = {};
+    for (const p of formatter.formatToParts(date)) {
+      parts[p.type] = p.value;
+    }
+
+    // In 24h mode, some browsers emit "24" for midnight; normalize to "00"
+    let hour = parts.hour;
+    if (use24Hour && hour === "24") hour = "00";
+    if (!use24Hour && hour.length === 1) hour = "0" + hour;
+
+    // Compare calendar date against user's local date for Today / Tomorrow / Yesterday
+    const localDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const targetDay = new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+    const diffDays = Math.round((targetDay - localDay) / 86400000);
+
+    let relDay = parts.weekday.toUpperCase();
+    if (diffDays === 0) relDay += " · TODAY";
+    else if (diffDays === 1) relDay += " · +1D";
+    else if (diffDays === -1) relDay += " · -1D";
+
+    return {
+      chars: [
+        hour[0], hour[1],
+        parts.minute[0], parts.minute[1],
+        parts.second[0], parts.second[1]
+      ],
+      dayPeriod: parts.dayPeriod || "",
+      relDay
+    };
+  }
+
+  function updateClocks() {
+    const now = new Date();
+    const stations = boardEl.querySelectorAll(".station");
+
+    stations.forEach((station, idx) => {
+      const city = CITIES.find(c => c.id === activeSlots[idx]);
+      const { chars, dayPeriod, relDay } = getZonedParts(now, city.tz);
+      const { dayLabel, digits, meridiem } = station._refs;
+
+      dayLabel.textContent = relDay;
+      chars.forEach((ch, i) => flipTo(digits[i], ch));
+
+      if (!use24Hour) {
+        meridiem.textContent = dayPeriod.toUpperCase();
+        meridiem.classList.add("visible");
+      } else {
+        meridiem.classList.remove("visible");
+      }
+    });
+  }
+
+  // 12H / 24H Switcher
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      use24Hour = btn.dataset.mode === "24";
+      updateClocks();
+    });
+  });
+
+  // Align tick loop cleanly to the start of every real-world second
+  function startClockLoop() {
+    updateClocks();
+    const delayToNextSecond = 1000 - (Date.now() % 1000);
+    setTimeout(() => {
+      updateClocks();
+      setInterval(updateClocks, 1000);
+    }, delayToNextSecond);
+  }
+
+  buildBoard();
+  startClockLoop();
+</script>
+</body>
+</html>
